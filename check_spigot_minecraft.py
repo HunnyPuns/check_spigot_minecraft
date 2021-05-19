@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-#Version 1.0
-
 #
 # check_minecraft.py created by HunnyPuns on January 4th, 2021
 # GitHub: https://github.com/HunnyPuns/
@@ -54,7 +52,7 @@ parser.add_argument('-m',
                     '--mcrcon',
                     required=False,
                     type=str,
-                    default='/home/hunnypuns/Documents/devcorner/check_minecraft/mcrcon',
+                    default='/usr/local/nagios/libexec/mcrcon',
                     help='Path to the mcrcon binary, including binary name.')
 parser.add_argument('-w',
                         '--warning',
