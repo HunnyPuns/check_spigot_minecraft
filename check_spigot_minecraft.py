@@ -52,7 +52,7 @@ parser.add_argument('-m',
                     '--mcrcon',
                     required=False,
                     type=str,
-                    default='/usr/local/nagios/libexec/mcrcon',
+                    default='/usr/bin/env mcrcon',
                     help='Path to the mcrcon binary, including binary name.')
 parser.add_argument('-w',
                         '--warning',
@@ -81,14 +81,15 @@ args = parser.parse_args(sys.argv[1:])
 resultstring = 'Nothing changed the result string'
 
 if (args.list is None and args.key == 'memory'):
-    tpsdata = subprocess.getoutput('{0} -H {1} -P {2} -p {3} -c "tps"'.format(args.mcrcon,
-                                                                            args.host,
-                                                                            args.port,
-                                                                            args.password))
+    try:
+        tpsdata = subprocess.run([args.mcrcon, "-H", args.host, "-P", args.port, "-p", args.password, "-c", "tps"], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        print("Hit CalledProcessError. Typically this means the script could not connect to the server.")
+        sys.exit(3)
 
-    returnmem = tpsdata.split("\n")[1]
-    usedmem = int(returnmem.split('/')[0].split(' ')[3])
-    maxmem = int(returnmem.split('/')[1].split(' ')[3])
+    returnmem = str(tpsdata.stdout).split(" ")[11]
+    usedmem = int(returnmem.split('/')[0])
+    maxmem = int(returnmem.split('/')[1])
     resultstring = 'Memory: {0} used of {1} max | used_mem={0}; max_mem={1}'.format(usedmem, maxmem)
 
     if (args.critical is not None and usedmem > args.critical):
@@ -100,10 +101,11 @@ if (args.list is None and args.key == 'memory'):
 
 
 elif (args.list is None and args.key == 'tps'):
-    tpsdata = subprocess.getoutput('{0} -H {1} -P {2} -p {3} -c "tps"'.format(args.mcrcon,
-                                                                            args.host,
-                                                                            args.port,
-                                                                            args.password))
+    try:
+        tpsdata = subprocess.run([args.mcrcon, "-H", args.host, "-P", args.port, "-p", args.password, "-c", "tps"], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        print("Hit CalledProcessError. Typically this means the script could not connect to the server.")
+        sys.exit(3)
 
     if (args.key == 'tps' and args.critical is not None and args.warning is not None):
         if (args.warning < args.critical):
@@ -113,19 +115,25 @@ elif (args.list is None and args.key == 'tps'):
             print(resultstring)
             sys.exit(status)
 
-    returntps = tpsdata.split("\n")[0]
+    returntps = str(tpsdata.stdout).split("\n")[0]
 
     if ('*' in returntps):
-        tps1m = float(returntps.split(':')[1].split(' *')[1][0:4])
-        tps5m = float(returntps.split(':')[1].split(' *')[2][0:4])
-        tps15m = float(returntps.split(':')[1].split(' *')[3][0:4])
+        len1m = len(str(returntps).split(' ')[6]) - 1
+        len5m = len(str(returntps).split(' ')[7]) - 1
+        len15m = len(str(returntps).split(' ')[8]) - 10
+        tps1m = float(str(returntps).split(' ')[6][1:len1m])
+        tps5m = float(str(returntps).split(' ')[7][1:len5m])
+        tps15m = float(str(returntps).split(' ')[8][1:len15m])
 
         resultstring = 'tps times were {0}, {1}, {2}|tps_1minute={0}; tps_5minute={1}; tps_15minute={2}'.format(tps1m, tps5m, tps15m)
 
     else:
-        tps1m = float(returntps.split(':')[1].split(', ')[0][0:4])
-        tps15m = float(returntps.split(':')[1].split(', ')[1][0:4])
-        tps5m = float(returntps.split(':')[1].split(', ')[2][0:4])
+        len1m = len(str(returntps).split(' ')[6]) - 1
+        len5m = len(str(returntps).split(' ')[7]) - 1
+        len15m = len(str(returntps).split(' ')[8]) - 10
+        tps1m = float(str(returntps).split(' ')[6][0:len1m])
+        tps15m = float(str(returntps).split(' ')[7][0:len5m])
+        tps5m = float(str(returntps).split(' ')[8][0:len15m])
 
         resultstring = 'tps times were {0}, {1}, {2}|tps_1minute={0}; tps_5minute={1}; tps_15minute={2}'.format(tps1m, tps5m, tps15m)
 
@@ -137,12 +145,14 @@ elif (args.list is None and args.key == 'tps'):
         status = 0
 
 elif (args.list is True):
-    userlist = subprocess.getoutput('{0} -H {1} -P {2} -p {3} -c "list"'.format(args.mcrcon,
-                                                                            args.host,
-                                                                            args.port,
-                                                                            args.password))
-    returnusercount = userlist.split(" ")[2]
-    returnmaxcount = userlist.split(" ")[7]
+    try:
+        userlist = subprocess.run([args.mcrcon, "-H", args.host, "-P", args.port, "-p", args.password, "-c", "list"], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        print("Hit CalledProcessError. Typically this means the script could not connect to the server.")
+        sys.exit(3)
+
+    returnusercount = str(userlist.stdout).split(" ")[2]
+    returnmaxcount = str(userlist.stdout).split(" ")[7]
     status = 0
     resultstring = '{0} users of {1} connected.|current_users={0}; max_users={1}'.format(returnusercount, returnmaxcount)
 
