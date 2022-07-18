@@ -116,26 +116,20 @@ elif (args.list is None and args.key == 'tps'):
             sys.exit(status)
 
     returntps = str(tpsdata.stdout).split("\n")[0]
+    tps1m = returntps.split(' ')[6][0:(len(returntps.split(' ')[6]) - 1)]
+    tps5m = returntps.split(' ')[7][0:(len(returntps.split(' ')[7]) - 1)]
+    tps15m = returntps.split(' ')[8]
 
-    if ('*' in returntps):
-        len1m = len(str(returntps).split(' ')[6]) - 1
-        len5m = len(str(returntps).split(' ')[7]) - 1
-        len15m = len(str(returntps).split(' ')[8]) - 10
-        tps1m = float(str(returntps).split(' ')[6][1:len1m])
-        tps5m = float(str(returntps).split(' ')[7][1:len5m])
-        tps15m = float(str(returntps).split(' ')[8][1:len15m])
+    if ('*' in tps1m):
+        tps1m = tps1m.split('*')[1]
 
-        resultstring = 'tps times were {0}, {1}, {2}|tps_1minute={0}; tps_5minute={1}; tps_15minute={2}'.format(tps1m, tps5m, tps15m)
+    if ('*' in tps5m):
+        tps5m = tps5m.split('*')[1]
 
-    else:
-        len1m = len(str(returntps).split(' ')[6]) - 1
-        len5m = len(str(returntps).split(' ')[7]) - 1
-        len15m = len(str(returntps).split(' ')[8]) - 10
-        tps1m = float(str(returntps).split(' ')[6][0:len1m])
-        tps15m = float(str(returntps).split(' ')[7][0:len5m])
-        tps5m = float(str(returntps).split(' ')[8][0:len15m])
+    if ('*' in tps15m):
+        tps15m = tps15m.split('*')[1]
 
-        resultstring = 'tps times were {0}, {1}, {2}|tps_1minute={0}; tps_5minute={1}; tps_15minute={2}'.format(tps1m, tps5m, tps15m)
+    resultstring = 'tps times were {0}, {1}, {2}|tps_1minute={0}; tps_5minute={1}; tps_15minute={2}'.format(tps1m, tps5m, tps15m)
 
     if (args.critical is not None and tps15m < args.critical):
         status = 2
