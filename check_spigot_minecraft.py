@@ -43,51 +43,53 @@ parser.add_argument('-P',
                     type=str,
                     default='25575',
                     help='rcon port for the Minecraft server')
-parser.add_argument('-l',
-                    '--list',
-                    required=False,
-                    type=bool,
-                    help='List the number of players on the server')
 parser.add_argument('-m',
+                    '--metric',
+                    required=False,
+                    type=str,
+                    choices=['list','tps','memory'],
+                    help='The metric you would like to monitor')
+parser.add_argument('-M',
                     '--mcrcon',
                     required=False,
                     type=str,
                     default='/usr/bin/env mcrcon',
                     help='Path to the mcrcon binary, including binary name.')
 parser.add_argument('-w',
-                        '--warning',
-                        required=False,
-                        type=int,
-                        help='Set the warning threshold')
+                    '--warning',
+                    required=False,
+                    type=int,
+                    help='Set the warning threshold')
 parser.add_argument('-c',
-                        '--critical',
-                        required=False,
-                        type=int,
-                        help='Set the critical threshold')
+                    '--critical',
+                    required=False,
+                    type=int,
+                    help='Set the critical threshold')
 
-subparsers = parser.add_subparsers(help='sub-command help', dest='command')
-
-parser_tps = subparsers.add_parser('tps',
-                                    help='Monitor TPS and/or memory utilization')
-parser_tps.add_argument('-k',
-                        '--key',
-                        required=False,
-                        type=str,
-                        choices=['tps','memory'],
-                        help='Set the key metric. e.g. tps or memory')
 
 args = parser.parse_args(sys.argv[1:])
 
 resultstring = 'Nothing changed the result string'
 
-if (args.list is None and args.key == 'memory'):
+def getdata(metric):
     try:
-        tpsdata = subprocess.run([args.mcrcon, "-H", args.host, "-P", args.port, "-p", args.password, "-c", "tps"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        print("Hit CalledProcessError. Typically this means the script could not connect to the server.")
-        sys.exit(3)
+        tpsdata = subprocess.getoutput('{0} -H {1} -P {2} -p {3} -c "{4}"'.format(args.mcrcon,
+                                                                                     args.host,
+                                                                                     args.port,
+                                                                                     args.password,
+                                                                                     metric))
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        sys.exit(2)
 
-    returnmem = str(tpsdata.stdout).split(" ")[11]
+    return tpsdata
+
+
+if (args.metric == 'memory'):
+    #Using tps as the metric here, because memory and ticks per second are grabbed by the same command
+    tpsdata = getdata('tps')
+
+    returnmem = str(tpsdata).split(" ")[11]
     usedmem = int(returnmem.split('/')[0])
     maxmem = int(returnmem.split('/')[1])
     resultstring = 'Memory: {0} used of {1} max | used_mem={0}; max_mem={1}'.format(usedmem, maxmem)
@@ -100,22 +102,18 @@ if (args.list is None and args.key == 'memory'):
         status = 0
 
 
-elif (args.list is None and args.key == 'tps'):
-    try:
-        tpsdata = subprocess.run([args.mcrcon, "-H", args.host, "-P", args.port, "-p", args.password, "-c", "tps"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        print("Hit CalledProcessError. Typically this means the script could not connect to the server.")
-        sys.exit(3)
+elif (args.metric == 'tps'):
+    tpsdata = getdata('tps')
 
-    if (args.key == 'tps' and args.critical is not None and args.warning is not None):
+    if (args.critical is not None and args.warning is not None):
         if (args.warning < args.critical):
             resultstring = 'When alerting on TPS, lower is worse. Warning should be a higher number than critical.'
             status = 3
-
+            
             print(resultstring)
             sys.exit(status)
 
-    returntps = str(tpsdata.stdout).split("\n")[0]
+    returntps = str(tpsdata).split("\n")[0]
     tps1m = returntps.split(' ')[6][0:(len(returntps.split(' ')[6]) - 1)]
     tps5m = returntps.split(' ')[7][0:(len(returntps.split(' ')[7]) - 1)]
     tps15m = returntps.split(' ')[8]
@@ -131,22 +129,17 @@ elif (args.list is None and args.key == 'tps'):
 
     resultstring = 'tps times were {0}, {1}, {2}|tps_1minute={0}; tps_5minute={1}; tps_15minute={2}'.format(tps1m, tps5m, tps15m)
 
-    if (args.critical is not None and tps15m < args.critical):
+    if (args.critical is not None and float(tps15m) < args.critical):
         status = 2
-    elif (args.warning is not None and tps15m < args.warning):
+    elif (args.warning is not None and float(tps15m) < args.warning):
         status = 1
     else:
         status = 0
 
-elif (args.list is True):
-    try:
-        userlist = subprocess.run([args.mcrcon, "-H", args.host, "-P", args.port, "-p", args.password, "-c", "list"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        print("Hit CalledProcessError. Typically this means the script could not connect to the server.")
-        sys.exit(3)
-
-    returnusercount = str(userlist.stdout).split(" ")[2]
-    returnmaxcount = str(userlist.stdout).split(" ")[7]
+elif (args.metric == 'list'):
+    tpsdata = getdata('list')
+    returnusercount = str(tpsdata).split(" ")[2]
+    returnmaxcount = str(tpsdata).split(" ")[7]
     status = 0
     resultstring = '{0} users of {1} connected.|current_users={0}; max_users={1}'.format(returnusercount, returnmaxcount)
 
